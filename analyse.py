@@ -145,21 +145,32 @@ def intervalle_bootstrap(fonction, *tableaux, strates=None, n=1000, niveau=0.95,
     })
 
 
-def tableau_tranches(y_reference, decisions, tranches):
+def tableau_tranches(y_reference, decisions, tranches, complet=False):
     """Effectif, nombre de meritants, taux de selection et TPR (contre la reference) par tranche.
 
-    `tranches` : Series, ou DataFrame pour croiser plusieurs variables. La TPR d'une
-    tranche sans meritant n'a pas de sens : elle est mise a NaN.
+    `tranches` : Series, ou DataFrame pour croiser plusieurs variables. `complet=True`
+    ajoute la FPR, la precision et l'exactitude. Une metrique sans denominateur dans
+    une tranche (ex. TPR sans meritant) est mise a NaN.
     """
-    from fairlearn.metrics import MetricFrame, count, selection_rate, true_positive_rate
+    from fairlearn.metrics import (MetricFrame, count, false_positive_rate, selection_rate,
+                                   true_positive_rate)
 
+    metriques = {'effectif': count, 'meritants': lambda y, d: int(np.sum(y)),
+                 'taux_selection': selection_rate, 'tpr': true_positive_rate}
+    if complet:
+        metriques.update({
+            'fpr': false_positive_rate,
+            'precision': lambda y, d: y[d == 1].mean() if (d == 1).any() else np.nan,
+            'exactitude': lambda y, d: (y == d).mean(),
+        })
     cadre = MetricFrame(
-        metrics={'effectif': count, 'meritants': lambda y, d: int(np.sum(y)),
-                 'taux_selection': selection_rate, 'tpr': true_positive_rate},
+        metrics=metriques,
         y_true=np.asarray(y_reference),
         y_pred=np.asarray(decisions),
         sensitive_features=tranches,
     )
     tableau = cadre.by_group
     tableau.loc[tableau['meritants'] == 0, 'tpr'] = np.nan
+    if complet:
+        tableau.loc[tableau['meritants'] == tableau['effectif'], 'fpr'] = np.nan
     return tableau

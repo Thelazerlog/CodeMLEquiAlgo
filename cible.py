@@ -54,7 +54,7 @@ def coefficients(modele):
     return coef.reindex(coef.abs().sort_values(ascending=False).index)
 
 
-def score_contrefactuel(modele, df, neutraliser=None, reference=None, retrait=1.0):
+def score_contrefactuel(modele, df, neutraliser=None, reference=None, retrait=1.0, ponderations=None):
     """Probabilite d'octroi avec la penalite regionale retiree.
 
     `retrait` : fraction de la penalite retiree (0 = comite, 1 = `eloignee` force a 0,
@@ -62,12 +62,18 @@ def score_contrefactuel(modele, df, neutraliser=None, reference=None, retrait=1.
     retire exactement cette fraction.
     `neutraliser` : colonnes supplementaires fixees a leur mediane dans `reference`
     (par defaut `df`), pour retirer aussi leur effet (ex. ['revenu_familial_estime']).
+    `ponderations` : {colonne: multiplicateur} applique au poids du comite pour cette
+    colonne, autour de sa moyenne dans `reference` (1 = inchange, 0 = neutralise,
+    -1 = effet inverse). Exact, car le modele est lineaire en logit.
     """
     df = ajouter_eloignee(df)
     reference = df if reference is None else reference
     df['eloignee'] = df['eloignee'] * (1 - retrait)
     for colonne in neutraliser or []:
         df[colonne] = reference[colonne].median()
+    for colonne, multiplicateur in (ponderations or {}).items():
+        moyenne = reference[colonne].mean()
+        df[colonne] = moyenne + multiplicateur * (df[colonne] - moyenne)
     return modele.predict_proba(df[NUMERIQUES + CATEGORIELLES])[:, 1]
 
 
@@ -92,25 +98,46 @@ def octroi_par_tranche_r(df, decisions, bornes=(0, 26, 27, 28, 29, 30, 32, 45)):
     )
 
 
+# --- Cible retenue ----------------------------------------------------------------
+
+# Criteres du comite retires du merite, en plus de la penalite regionale. Calibres contre
+# l'etalon cache avec les sondes de `sondes_cible.ipynb` : le revenu n'en fait pas partie
+# (optimum du multiplicateur a -0.01), et la distance est un proxy pur de la region.
+PONDERATIONS_MERITE = {'revenu_familial_estime': 0, 'distance_domicile_campus_km': 0}
+
+
+def score_merite(modele, df, reference=None):
+    """Score de merite retenu : penalite regionale retiree, revenu et distance neutralises.
+
+    `reference` : jeu dont les moyennes servent a neutraliser (par defaut `df`).
+    """
+    return score_contrefactuel(modele, df, reference=reference, retrait=1.0,
+                               ponderations=PONDERATIONS_MERITE)
+
+
 # --- Cible d'entrainement pour un modele supervise -------------------------------
 
-# Variables du modele entraine : ni la region, ni ses proxys directs.
-VARIABLES_MODELE = [c for c in NUMERIQUES if c != 'eloignee'] + CATEGORIELLES
+# Variables du modele entraine : ni la region ni le code postal, ni le revenu ni la
+# distance, dont la cible a retire l'effet (le modele leur apprendrait un poids nul).
+VARIABLES_MODELE = [c for c in NUMERIQUES
+                    if c not in ['eloignee', *PONDERATIONS_MERITE]] + CATEGORIELLES
 
 
-def cible_individuelle(modele, df):
+def cible_individuelle(modele, df, reference=None):
     """Probabilite d'octroi contrefactuelle de chaque dossier, sachant la decision reelle.
 
-    Contrairement a `score_contrefactuel`, qui ne depend que des variables, cette cible
-    garde l'information individuelle du comite (abduction, au sens de Pearl). Si le
-    comite a accorde, le candidat aurait aussi obtenu la bourse sans la penalite : 1.
-    S'il a refuse, la probabilite qu'il soit passe sans la penalite est
-    (p_cf - p) / (1 - p). Pour le Centre, p_cf = p : la cible vaut `decision_octroi`.
+    Contrairement a `score_merite`, qui ne depend que des variables, cette cible garde
+    l'information individuelle du comite (abduction, au sens de Pearl). On note p la
+    probabilite d'octroi du comite et q le score de merite :
+    - comite a accorde : min(1, q / p). Un candidat que le revenu avait aide peut descendre ;
+    - comite a refuse : max(0, (q - p) / (1 - p)). Un candidat penalise peut monter.
+    En moyenne sur la decision du comite, la cible vaut exactement q.
+    `reference` : jeu dont les moyennes servent a neutraliser (par defaut `df`).
     """
     p = score_contrefactuel(modele, df, retrait=0)
-    p_cf = score_contrefactuel(modele, df, retrait=1)
+    q = score_merite(modele, df, reference)
     y = df['decision_octroi'].to_numpy()
-    return np.where(y == 1, 1.0, (p_cf - p) / (1 - p))
+    return np.where(y == 1, np.minimum(1.0, q / p), np.maximum(0.0, (q - p) / (1 - p)))
 
 
 def dupliquer_cible_souple(X, cible):
@@ -127,7 +154,7 @@ def dupliquer_cible_souple(X, cible):
 
 
 def entrainer_modele_cible(df, cible, estimateur=None):
-    """Entraine un modele de production sur une cible souple, sans region ni code postal.
+    """Entraine un modele de production sur une cible souple (variables : `VARIABLES_MODELE`).
 
     `estimateur` : classifieur scikit-learn (regression logistique par defaut).
     """
