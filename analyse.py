@@ -81,3 +81,14 @@ def tracer_importances(importances, titre, ax=None):
     ax.set_title(titre)
     ax.grid(axis='x', alpha=0.3)
     return ax
+
+
+def ecart_egalite_chances(y_reference, decisions, groupes, favorise='Centre', defavorise='Eloignee'):
+    """Ecart de TPR (favorise - defavorise) par rapport a une reference de merite.
+
+    Signe conserve : positif = le groupe `favorise` est avantage. Le scoreur mesure
+    cet ecart contre l'etalon cache ; ici, `y_reference` en est une approximation.
+    """
+    y, d, g = np.asarray(y_reference), np.asarray(decisions), np.asarray(groupes)
+    tpr = lambda groupe: d[(g == groupe) & (y == 1)].mean()
+    return tpr(favorise) - tpr(defavorise)
