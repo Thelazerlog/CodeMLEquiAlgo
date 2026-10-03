@@ -124,3 +124,21 @@ def dupliquer_cible_souple(X, cible):
     return (pd.concat([X, X], ignore_index=True),
             np.r_[np.ones(n, dtype=int), np.zeros(n, dtype=int)],
             np.r_[cible, 1 - cible])
+
+
+def entrainer_modele_cible(df, cible, estimateur=None):
+    """Entraine un modele de production sur une cible souple, sans region ni code postal.
+
+    `estimateur` : classifieur scikit-learn (regression logistique par defaut).
+    """
+    if estimateur is None:
+        estimateur = LogisticRegression(max_iter=3000)
+    numeriques = [c for c in VARIABLES_MODELE if c not in CATEGORIELLES]
+    pretraitement = ColumnTransformer([
+        ('num', StandardScaler(), numeriques),
+        ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), CATEGORIELLES),
+    ])
+    modele = make_pipeline(pretraitement, estimateur)
+    X, y, poids = dupliquer_cible_souple(df[VARIABLES_MODELE], cible)
+    modele.fit(X, y, **{f'{modele.steps[-1][0]}__sample_weight': poids})
+    return modele
