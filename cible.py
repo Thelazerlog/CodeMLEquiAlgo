@@ -90,3 +90,37 @@ def octroi_par_tranche_r(df, decisions, bornes=(0, 26, 27, 28, 29, 30, 32, 45)):
         .groupby([tranche, groupe], observed=True).mean()
         .unstack()
     )
+
+
+# --- Cible d'entrainement pour un modele supervise -------------------------------
+
+# Variables du modele entraine : ni la region, ni ses proxys directs.
+VARIABLES_MODELE = [c for c in NUMERIQUES if c != 'eloignee'] + CATEGORIELLES
+
+
+def cible_individuelle(modele, df):
+    """Probabilite d'octroi contrefactuelle de chaque dossier, sachant la decision reelle.
+
+    Contrairement a `score_contrefactuel`, qui ne depend que des variables, cette cible
+    garde l'information individuelle du comite (abduction, au sens de Pearl). Si le
+    comite a accorde, le candidat aurait aussi obtenu la bourse sans la penalite : 1.
+    S'il a refuse, la probabilite qu'il soit passe sans la penalite est
+    (p_cf - p) / (1 - p). Pour le Centre, p_cf = p : la cible vaut `decision_octroi`.
+    """
+    p = score_contrefactuel(modele, df, retrait=0)
+    p_cf = score_contrefactuel(modele, df, retrait=1)
+    y = df['decision_octroi'].to_numpy()
+    return np.where(y == 1, 1.0, (p_cf - p) / (1 - p))
+
+
+def dupliquer_cible_souple(X, cible):
+    """Transforme une cible souple en classification ponderee.
+
+    Chaque dossier apparait deux fois : etiquette 1 avec poids `cible`, etiquette 0
+    avec poids `1 - cible`. Retourne (X, y, poids).
+    """
+    cible = np.asarray(cible)
+    n = len(cible)
+    return (pd.concat([X, X], ignore_index=True),
+            np.r_[np.ones(n, dtype=int), np.zeros(n, dtype=int)],
+            np.r_[cible, 1 - cible])
