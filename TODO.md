@@ -12,11 +12,8 @@
     - [x] ThresholdOptimizer (comparateur, section 2)
     - [x] ExponentiatedGradient (comparateur, balayage de la borne, section 2.2)
 - [x] Feature engineering (cote R vs région médiane...)
-- [ ] Remettre `fairlearn.postprocessing.ThresholdOptimizer` et `fairlearn.reductions.ExponentiatedGradient` dans le nouveau training:
-    - [ ] ThresholdOptimizer (comparateur, section 2)
-    - [ ] ExponentiatedGradient (comparateur, balayage de la borne, section 2.2)
 - [ ] Faire audit: (WIP)
-  - [ ] Ajout des métriques de régression?
-  - [ ] Analyse des coefficients?
-- [ ] Préparer présentation
+- [ ] front de Pareto pour plusieurs réglages de la contrainte
+- [ ] Plan de surveillance
 - [ ] Améliorer métriques encore si possible
+- [ ] Préparer présentation

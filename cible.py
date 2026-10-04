@@ -79,13 +79,15 @@ def octroi_top_k(scores, taux=0.40):
 
 # --- Cible retenue ----------------------------------------------------------------
 
-# Criteres du comite retires du merite, en plus de la penalite regionale. Calibres contre
-# l'etalon cache avec les sondes de `sondes_cible.ipynb` : le revenu n'en fait pas partie
-# (optimum du multiplicateur a -0.01), et la distance est un proxy pur de la region.
+# Multiplicateur du poids du comite pour le revenu et la distance dans le merite (1 = poids
+# du comite, 0 = neutralise). Les deux sont gardes au poids du comite : seule la penalite
+# regionale est retiree. Les sondes HxBuddy (`sondes/`) favorisaient pourtant la neutralisation
+# du revenu (94.43 % contre 92.38 %).
 PONDERATIONS_MERITE = {'revenu_familial_estime': 1, 'distance_domicile_campus_km': 1}
 
 def score_merite(modele, df, reference=None):
-    """Score de merite retenu : penalite regionale retiree, revenu et distance neutralises.
+    """Score de merite retenu : penalite regionale retiree, revenu et distance ponderes selon
+    `PONDERATIONS_MERITE` (actuellement au poids du comite).
 
     `reference` : jeu dont les moyennes servent a neutraliser (par defaut `df`).
     """
@@ -96,7 +98,8 @@ def score_merite(modele, df, reference=None):
 # --- Cible d'entrainement pour un modele supervise -------------------------------
 
 # Variables du modele entraine : ni la region ni le code postal, ni le revenu ni la
-# distance, dont la cible a retire l'effet (le modele leur apprendrait un poids nul).
+# distance en variables brutes. Leur effet reste dans la cible (poids du comite), et le
+# revenu et la region entrent aussi via NOUVELLES_VARIABLES (cote R relative).
 VARIABLES_MODELE = [c for c in NUMERIQUES
                     if c not in ['eloignee', *PONDERATIONS_MERITE]] + CATEGORIELLES
 
@@ -107,7 +110,8 @@ def cible_individuelle(modele, df, reference=None):
     Contrairement a `score_merite`, qui ne depend que des variables, cette cible garde
     l'information individuelle du comite (abduction, au sens de Pearl). On note p la
     probabilite d'octroi du comite et q le score de merite :
-    - comite a accorde : min(1, q / p). Un candidat que le revenu avait aide peut descendre ;
+    - comite a accorde : min(1, q / p). Un candidat avantage par un critere retire du merite
+      peut descendre (aucun avec PONDERATIONS_MERITE = 1 : la cible reste 1) ;
     - comite a refuse : max(0, (q - p) / (1 - p)). Un candidat penalise peut monter.
     En moyenne sur la decision du comite, la cible vaut exactement q.
     `reference` : jeu dont les moyennes servent a neutraliser (par defaut `df`).
@@ -148,3 +152,60 @@ def entrainer_modele_cible(df, cible, estimateur=None, new_features=None):
     X, y, poids = dupliquer_cible_souple(df[features], cible)
     modele.fit(X, y, **{f'{modele.steps[-1][0]}__sample_weight': poids})
     return modele
+
+
+# --- Attributs supplementaires du modele corrige ----------------------------------
+
+# Cote R relative a la region et au revenu : le modele compare chaque candidat a ses pairs.
+NOUVELLES_VARIABLES = ['cote_r_rel_a_region', 'cote_r_rel_au_revenu']
+
+
+def ajouter_attributs(df, reference):
+    """Ajoute la cote R relative a la region et au revenu (medianes calculees sur `reference`).
+
+    - cote_r_rel_a_region : cote R / mediane de la cote R dans la region du dossier ;
+    - cote_r_rel_au_revenu : cote R / mediane de la cote R dans la tranche de revenu du dossier
+      (15 tranches de meme effectif dans `reference`).
+    Les medianes et les bornes viennent de `reference` : les candidats sont mesures avec la meme
+    definition que l'historique.
+    """
+    mediane_region = reference.groupby('region_administrative')['cote_r_equivalent'].median()
+    _, bornes = pd.qcut(reference['revenu_familial_estime'], q=15, retbins=True)
+    bornes[0], bornes[-1] = -np.inf, np.inf
+    tranche = lambda d: pd.cut(d['revenu_familial_estime'], bornes, labels=False)
+    mediane_revenu = reference['cote_r_equivalent'].groupby(tranche(reference)).median()
+
+    df.insert(0, 'cote_r_rel_au_revenu', df['cote_r_equivalent'] / tranche(df).map(mediane_revenu))
+    df.insert(0, 'cote_r_rel_a_region',
+              df['cote_r_equivalent'] / df['region_administrative'].map(mediane_region))
+
+
+# --- Seuil de decision dans le budget ---------------------------------------------
+
+TAUX_MIN, TAUX_MAX = 0.36, 0.44   # budget : taux d'octroi exige sur les candidats
+MARGE = 0.01                       # le seuil est cherche a l'interieur du budget : le taux varie d'un jeu a l'autre
+
+
+def exactitude_attendue(cible, decisions):
+    """Exactitude moyenne contre une cible souple : un octroi vaut cible, un refus vaut 1 - cible."""
+    cible, decisions = np.asarray(cible), np.asarray(decisions)
+    return np.mean(decisions * cible + (1 - decisions) * (1 - cible))
+
+
+def choisir_seuil(proba, cible, taux_min=TAUX_MIN + MARGE, taux_max=TAUX_MAX - MARGE,
+                  critere=exactitude_attendue):
+    """Seuil de probabilite qui maximise `critere`, parmi ceux dont le taux d'octroi est dans [taux_min, taux_max].
+
+    Les seuils candidats sont les quantiles de `proba` correspondant a ces taux.
+    Retourne (seuil, taux d'octroi obtenu).
+    """
+    proba = np.asarray(proba)
+    seuils = np.unique(np.quantile(proba, np.linspace(1 - taux_max, 1 - taux_min, 161)))
+    scores = [critere(cible, (proba >= s).astype(int)) for s in seuils]
+    meilleur = seuils[int(np.argmax(scores))]
+    return meilleur, np.mean(proba >= meilleur)
+
+
+def appliquer_seuil(proba, seuil):
+    """Octroi si la probabilite atteint le seuil."""
+    return (np.asarray(proba) >= seuil).astype(int)
