@@ -16,17 +16,16 @@ du jeu de test au déploiement.
 
 | Indicateur | Définition | Référence (test) | Seuil d'alerte |
 |---|---|---|---|
-| Taux d'octroi | part des candidats qui reçoivent la bourse | 0.438 | hors de 36 – 44 % |
-| Écart de parité | taux d'octroi Centre − Éloignée | 0.015 | \|écart\| > 0.05 |
-| Écart d'égalité des chances | TPR Centre − TPR Éloignée, les qualifiés étant les 40 % meilleures cotes R | -0.026 | \|écart\| > 0.05 |
+| Taux d'octroi | part des candidats qui reçoivent la bourse | 0.425 | hors de 36 – 44 % |
+| Écart de parité | taux d'octroi Centre − Éloignée | 0.013 | \|écart\| > 0.05 |
+| Écart d'égalité des chances | TPR Centre − TPR Éloignée, les qualifiés étant les 40 % meilleures cotes R | -0.029 | \|écart\| > 0.05 |
 | Dérive des données | statistique de Kolmogorov-Smirnov maximale entre la cohorte et l'historique (cote R, revenu, heures, distance) | 0.027 | > 0.10 |
 
 L'égalité des chances est la métrique retenue par l'audit (section 1.B). Mesurée contre la cote R, elle ne
 demande aucune étiquette : la cote R est dans chaque dossier.
 
-**Première cohorte (les 4 000 candidats)** : taux d'octroi 0.440, écart de parité 0.022, écart d'égalité des
-chances -0.026, dérive 0.017. Tout est sous les seuils. Le taux d'octroi est cependant à la borne haute du
-budget.
+**Première cohorte (les 4 000 candidats)** : taux d'octroi 0.432, écart de parité 0.017, écart d'égalité des
+chances -0.034, dérive 0.017. Tout est sous les seuils.
 
 ## Quand une alerte se déclenche
 

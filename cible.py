@@ -195,16 +195,30 @@ def exactitude_attendue(cible, decisions):
     return np.mean(decisions * cible + (1 - decisions) * (1 - cible))
 
 
-def choisir_seuil(proba, cible, taux_min=TAUX_MIN + MARGE, taux_max=TAUX_MAX - MARGE,
-                  critere=exactitude_attendue):
-    """Seuil de probabilite qui maximise `critere`, parmi ceux dont le taux d'octroi est dans [taux_min, taux_max].
+def ecart_parite(decisions, groupes):
+    """Ecart de parite demographique : plus grand moins plus petit taux d'octroi entre les groupes."""
+    taux = pd.Series(np.asarray(decisions)).groupby(np.asarray(groupes)).mean()
+    return taux.max() - taux.min()
 
+
+def choisir_seuil(proba, cible, taux_min=TAUX_MIN + MARGE, taux_max=TAUX_MAX - MARGE,
+                  critere=exactitude_attendue, groupes=None, tolerance_parite=0.005):
+    """Seuil de probabilite parmi ceux dont le taux d'octroi est dans [taux_min, taux_max].
+
+    Sans `groupes` : le seuil qui maximise `critere`.
+    Avec `groupes` : priorite a la parite. On garde les seuils dont l'ecart de parite est a moins de
+    `tolerance_parite` du plus petit ecart atteignable, puis on choisit parmi eux celui qui maximise
+    `critere`.
     Les seuils candidats sont les quantiles de `proba` correspondant a ces taux.
     Retourne (seuil, taux d'octroi obtenu).
     """
     proba = np.asarray(proba)
     seuils = np.unique(np.quantile(proba, np.linspace(1 - taux_max, 1 - taux_min, 161)))
-    scores = [critere(cible, (proba >= s).astype(int)) for s in seuils]
+    decisions = [(proba >= s).astype(int) for s in seuils]
+    scores = np.array([critere(cible, d) for d in decisions])
+    if groupes is not None:
+        ecarts = np.array([ecart_parite(d, groupes) for d in decisions])
+        scores[ecarts > ecarts.min() + tolerance_parite] = -np.inf
     meilleur = seuils[int(np.argmax(scores))]
     return meilleur, np.mean(proba >= meilleur)
 
