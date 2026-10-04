@@ -78,7 +78,7 @@ def score_contrefactuel(modele, df, neutraliser=None, reference=None, retrait=1.
 
 
 def octroi_top_k(scores, taux=0.40):
-    """Accorde la bourse exactement aux `taux` meilleurs scores (budget garanti)."""
+    """Accorde la bourse exactement aux `taux` meilleurs scores."""
     scores = np.asarray(scores)
     k = int(round(taux * len(scores)))
     decisions = np.zeros(len(scores), dtype=int)
@@ -153,19 +153,20 @@ def dupliquer_cible_souple(X, cible):
             np.r_[cible, 1 - cible])
 
 
-def entrainer_modele_cible(df, cible, estimateur=None):
+def entrainer_modele_cible(df, cible, estimateur=None, new_features=None):
     """Entraine un modele de production sur une cible souple (variables : `VARIABLES_MODELE`).
 
     `estimateur` : classifieur scikit-learn (regression logistique par defaut).
     """
     if estimateur is None:
         estimateur = LogisticRegression(max_iter=3000)
-    numeriques = [c for c in VARIABLES_MODELE if c not in CATEGORIELLES]
+    features = VARIABLES_MODELE + (new_features if new_features is not None else [])
+    numeriques = [c for c in features if c not in CATEGORIELLES]
     pretraitement = ColumnTransformer([
         ('num', StandardScaler(), numeriques),
         ('cat', OneHotEncoder(handle_unknown='ignore', sparse_output=False), CATEGORIELLES),
     ])
     modele = make_pipeline(pretraitement, estimateur)
-    X, y, poids = dupliquer_cible_souple(df[VARIABLES_MODELE], cible)
+    X, y, poids = dupliquer_cible_souple(df[features], cible)
     modele.fit(X, y, **{f'{modele.steps[-1][0]}__sample_weight': poids})
     return modele
