@@ -11,9 +11,11 @@
   coup, le second réentraîne sous contrainte:
     - [x] ThresholdOptimizer (comparateur, section 2)
     - [x] ExponentiatedGradient (comparateur, balayage de la borne, section 2.2)
-- [ ] Feature engineering (cote R vs région médiane...)
-- [ ] Tester avec AutoML, XGBoost, Optuna
-- [ ] weighting
-
-Worst case scenario:
-- [ ] Parité au serving
+- [x] Feature engineering (cote R vs région médiane...)
+- [ ] Refactor cible.py
+- [ ] Remettre `fairlearn.postprocessing.ThresholdOptimizer` et `fairlearn.reductions.ExponentiatedGradient` dans le nouveau training:
+    - [ ] ThresholdOptimizer (comparateur, section 2)
+    - [ ] ExponentiatedGradient (comparateur, balayage de la borne, section 2.2)
+- [ ] Préparer présentation
+- [ ] Faire audit
+- [ ] Améliorer métriques encore si possible
