@@ -1,13 +1,4 @@
-"""Redefinition de la cible : score contrefactuel debiaise de `decision_octroi`.
-
-Hypothese : le comite est juste pour le groupe Centre. Le merite estime d'un
-candidat est la probabilite d'octroi qu'il aurait eue s'il avait ete traite
-comme un candidat du Centre, toutes choses egales par ailleurs.
-
-On modelise la decision avec un indicateur de region explicite (regression
-logistique), puis on predit avec cet indicateur force a 0. `code_postal_3` est
-exclu : il est determine par la region et absorberait l'effet a retirer.
-"""
+"""Redefinition de la cible : score contrefactuel debiaise de `decision_octroi`."""
 
 import numpy as np
 import pandas as pd
@@ -86,25 +77,12 @@ def octroi_top_k(scores, taux=0.40):
     return decisions
 
 
-def octroi_par_tranche_r(df, decisions, bornes=(0, 26, 27, 28, 29, 30, 32, 45)):
-    """Taux d'octroi par tranche de cote R et par groupe (Centre / Eloignee)."""
-    df = ajouter_eloignee(df)
-    tranche = pd.cut(df['cote_r_equivalent'], list(bornes))
-    groupe = np.where(df['eloignee'] == 1, 'Eloignee', 'Centre')
-    return (
-        pd.Series(np.asarray(decisions), index=df.index)
-        .groupby([tranche, groupe], observed=True).mean()
-        .unstack()
-    )
-
-
 # --- Cible retenue ----------------------------------------------------------------
 
 # Criteres du comite retires du merite, en plus de la penalite regionale. Calibres contre
 # l'etalon cache avec les sondes de `sondes_cible.ipynb` : le revenu n'en fait pas partie
 # (optimum du multiplicateur a -0.01), et la distance est un proxy pur de la region.
-PONDERATIONS_MERITE = {'revenu_familial_estime': 0, 'distance_domicile_campus_km': 0}
-
+PONDERATIONS_MERITE = {'revenu_familial_estime': 1, 'distance_domicile_campus_km': 1}
 
 def score_merite(modele, df, reference=None):
     """Score de merite retenu : penalite regionale retiree, revenu et distance neutralises.

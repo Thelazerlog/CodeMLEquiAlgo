@@ -12,10 +12,11 @@
     - [x] ThresholdOptimizer (comparateur, section 2)
     - [x] ExponentiatedGradient (comparateur, balayage de la borne, section 2.2)
 - [x] Feature engineering (cote R vs région médiane...)
-- [ ] Refactor cible.py
 - [ ] Remettre `fairlearn.postprocessing.ThresholdOptimizer` et `fairlearn.reductions.ExponentiatedGradient` dans le nouveau training:
     - [ ] ThresholdOptimizer (comparateur, section 2)
     - [ ] ExponentiatedGradient (comparateur, balayage de la borne, section 2.2)
+- [ ] Faire audit: (WIP)
+  - [ ] Ajout des métriques de régression?
+  - [ ] Analyse des coefficients?
 - [ ] Préparer présentation
-- [ ] Faire audit
 - [ ] Améliorer métriques encore si possible
