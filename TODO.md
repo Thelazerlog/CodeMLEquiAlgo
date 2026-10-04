@@ -14,6 +14,6 @@
 - [x] Feature engineering (cote R vs région médiane...)
 - [x] Faire audit: (WIP)
 - [x] front de Pareto pour plusieurs réglages de la contrainte
-- [x] Plan de surveillance (`plan_surveillance.md` + `modele_corrige.ipynb` section 6)
+- [x] Plan de surveillance (`plan_surveillance.md` + `model_corrige.ipynb` section 6)
 - [ ] Améliorer métriques encore si possible
 - [ ] Préparer présentation

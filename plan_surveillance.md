@@ -11,7 +11,7 @@ cela dure :
 
 ## Indicateurs (à chaque cohorte d'attribution)
 
-Calculés par `indicateurs()` dans `modele_corrige.ipynb` (section 6). Les valeurs de référence sont celles
+Calculés par `indicateurs()` dans `model_corrige.ipynb` (section 6). Les valeurs de référence sont celles
 du jeu de test au déploiement.
 
 | Indicateur | Définition | Référence (test) | Seuil d'alerte |
@@ -33,5 +33,5 @@ chances -0.034, dérive 0.017. Tout est sous les seuils.
    modèle. Refaire l'analyse par tranches (région, cote R, revenu) de `audit_rapport.ipynb`.
 2. **Si l'alerte persiste deux cohortes de suite**, ou si le contrôle annuel est hors seuil : suspendre les
    décisions automatiques, revenir à la revue humaine et réentraîner le modèle.
-3. **Avant tout redéploiement** : refaire le front de Pareto (`modele_corrige.ipynb`, section 5) et l'audit,
+3. **Avant tout redéploiement** : refaire le front de Pareto (`model_corrige.ipynb`, section 5) et l'audit,
    et versionner le modèle, le paramètre `retrait` et les seuils.
