@@ -85,13 +85,15 @@ def octroi_top_k(scores, taux=0.40):
 # du revenu (94.43 % contre 92.38 %).
 PONDERATIONS_MERITE = {'revenu_familial_estime': 1, 'distance_domicile_campus_km': 1}
 
-def score_merite(modele, df, reference=None):
+def score_merite(modele, df, reference=None, retrait=1.0):
     """Score de merite retenu : penalite regionale retiree, revenu et distance ponderes selon
     `PONDERATIONS_MERITE` (actuellement au poids du comite).
 
     `reference` : jeu dont les moyennes servent a neutraliser (par defaut `df`).
+    `retrait` : fraction de la penalite regionale retiree (1 = cible retenue ; voir
+    `score_contrefactuel`). Les autres valeurs servent au front de Pareto.
     """
-    return score_contrefactuel(modele, df, reference=reference, retrait=1.0,
+    return score_contrefactuel(modele, df, reference=reference, retrait=retrait,
                                ponderations=PONDERATIONS_MERITE)
 
 
@@ -104,7 +106,7 @@ VARIABLES_MODELE = [c for c in NUMERIQUES
                     if c not in ['eloignee', *PONDERATIONS_MERITE]] + CATEGORIELLES
 
 
-def cible_individuelle(modele, df, reference=None):
+def cible_individuelle(modele, df, reference=None, retrait=1.0):
     """Probabilite d'octroi contrefactuelle de chaque dossier, sachant la decision reelle.
 
     Contrairement a `score_merite`, qui ne depend que des variables, cette cible garde
@@ -115,9 +117,10 @@ def cible_individuelle(modele, df, reference=None):
     - comite a refuse : max(0, (q - p) / (1 - p)). Un candidat penalise peut monter.
     En moyenne sur la decision du comite, la cible vaut exactement q.
     `reference` : jeu dont les moyennes servent a neutraliser (par defaut `df`).
+    `retrait` : fraction de la penalite regionale retiree dans q (voir `score_merite`).
     """
     p = score_contrefactuel(modele, df, retrait=0)
-    q = score_merite(modele, df, reference)
+    q = score_merite(modele, df, reference, retrait)
     y = df['decision_octroi'].to_numpy()
     return np.where(y == 1, np.minimum(1.0, q / p), np.maximum(0.0, (q - p) / (1 - p)))
 

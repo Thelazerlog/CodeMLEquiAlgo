@@ -12,8 +12,8 @@
     - [x] ThresholdOptimizer (comparateur, section 2)
     - [x] ExponentiatedGradient (comparateur, balayage de la borne, section 2.2)
 - [x] Feature engineering (cote R vs région médiane...)
-- [ ] Faire audit: (WIP)
-- [ ] front de Pareto pour plusieurs réglages de la contrainte
-- [ ] Plan de surveillance
+- [x] Faire audit: (WIP)
+- [x] front de Pareto pour plusieurs réglages de la contrainte
+- [x] Plan de surveillance (`plan_surveillance.md` + `modele_corrige.ipynb` section 6)
 - [ ] Améliorer métriques encore si possible
 - [ ] Préparer présentation
